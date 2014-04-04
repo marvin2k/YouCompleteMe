@@ -30,6 +30,7 @@
 
 import os
 import ycm_core
+import pickle
 
 # These are the compilation flags that will be used in case there's no
 # compilation database set (by default, one is not set).
@@ -102,6 +103,7 @@ compilation_database_folder = ''
 
 if os.path.exists( compilation_database_folder ):
   database = ycm_core.CompilationDatabase( compilation_database_folder )
+  databasename = "/tmp/ycm_lastflags_"+os.path.basename(os.path.abspath(compilation_database_folder))
 else:
   database = None
 
@@ -169,7 +171,17 @@ def FlagsForFile( filename, **kwargs ):
     # python list, but a "list-like" StringVec object
     compilation_info = GetCompilationInfoForFile( filename )
     if not compilation_info:
-      return None
+
+      # as a last resort we'll try to reuse the filename of the last
+      # successfull lookup to query fresh compilation info
+      if (os.path.isfile(databasename)):
+        fp = open(databasename,"r")
+        filename = pickle.load(fp)
+        compilation_info = GetCompilationInfoForFile( filename )
+
+        # still no luck? just return
+        if not compilation_info:
+          return None
 
     final_flags = MakeRelativePathsInFlagsAbsolute(
       compilation_info.compiler_flags_,
@@ -185,6 +197,13 @@ def FlagsForFile( filename, **kwargs ):
   else:
     relative_to = DirectoryOfThisScript()
     final_flags = MakeRelativePathsInFlagsAbsolute( flags, relative_to )
+
+
+  # we know that this filename was good to look up flags. note the filename, so that we can reuse it later
+  fp = open(databasename,"w+")
+  pickle.dump(filename, fp)
+  fp.truncate()
+  fp.close()
 
   return {
     'flags': final_flags,
